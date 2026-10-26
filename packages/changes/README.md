@@ -24,7 +24,7 @@ Git execution is host-owned, fixed-argv and read-only. The host disables inherit
 
 ## Compatibility
 
-This package requires Wolfpack Extensions APIv1 with `context.project.gitStatus(signal?)`. Diffs additionally need `context.project.gitDiff(signal?)`, added in Wolfpack host commit `8a5d5f1c` (unreleased); without it the view still works and shows no diffs. Untracked-file diffs additionally need the optional `untracked` section of `gitDiff`, added in Wolfpack host commit `8d1f8820` on branch `feat/extension-untracked-diff` (unreleased, not yet merged); this view was validated against that branch at `accc0ad4`. The validated host source revision is `c0854195da6ca4788d532bbe77ea0600b3cf8a86`; it provides the needed API. The published `wolfpack-bridge@1.6.24` does **not** provide that API and cannot install/use this package. There is intentionally no compatibility shim for older hosts.
+This package requires Wolfpack Extensions APIv1 with `context.project.gitStatus(signal?)`. Diffs additionally need `context.project.gitDiff(signal?)`, added in Wolfpack host commit `8a5d5f1c` (unreleased); without it the view still works and shows no diffs. Untracked-file diffs additionally need the optional `untracked` section of `gitDiff`, added in Wolfpack host commit `8d1f8820` on branch `feat/extension-untracked-diff` (unreleased, not yet merged); this view was validated against that branch at `2e927d85`. The validated host source revision is `c0854195da6ca4788d532bbe77ea0600b3cf8a86`; it provides the needed API. The published `wolfpack-bridge@1.6.24` does **not** provide that API and cannot install/use this package. There is intentionally no compatibility shim for older hosts.
 
 ## Develop independently
 
