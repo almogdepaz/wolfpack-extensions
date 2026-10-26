@@ -48,7 +48,7 @@ interface DiffRow {
   readonly paths: readonly string[];
   rendered?: object;
 }
-/** A staged/unstaged file row whose summary is the plain row content and whose body holds that file's diff. */
+/** A file row whose summary is the plain row content and whose body holds that file's diff. */
 function diffRow(change: GitFileChange): DiffRow {
   const row = fileRow(change), details = element("details", "file-diff"), summary = element("summary"), body = element("div", "diff");
   summary.setAttribute("aria-label", row.getAttribute("aria-label")!); row.removeAttribute("aria-label");
@@ -97,8 +97,8 @@ function indexDiff(text: string): Map<string, string> {
 const DIFF_STYLES = diffStyles.replace(/(^|[{}])([^{}@]+)\{/g, (_, end: string, selectors: string) =>
   `${end}${selectors.split(",").map(selector => /^:(?:host|root)$/.test(selector.trim()) ? ".wolfpack-changes" : `.wolfpack-changes ${selector}`).join(",")}{`);
 const DIFF_OPTIONS = { drawFileList: false, outputFormat: "line-by-line", matching: "none", colorScheme: ColorSchemeType.DARK } as const;
-type DiffSection = "staged" | "unstaged";
-type DiffResult = { readonly state: "not-repository" } | { readonly state: "ready"; readonly truncated: boolean } & Readonly<Record<DiffSection, Map<string, string>>>;
+// `untracked` is undefined when the host predates untracked diffs.
+type DiffResult = { readonly state: "not-repository" } | { readonly state: "ready"; readonly truncated: boolean; readonly staged: Map<string, string>; readonly unstaged: Map<string, string>; readonly untracked?: Map<string, string> };
 
 type GroupKey = "staged" | "unstaged" | "untracked";
 const GROUP_KEYS: readonly GroupKey[] = ["staged", "unstaged", "untracked"];
@@ -285,16 +285,18 @@ ${diffs ? DIFF_STYLES + `
       // One diff read serves every open row; it is refetched only for a changed status or an explicit refresh.
       let diff: DiffResult | undefined, diffFingerprint = "", diffRequest: AbortController | undefined, diffFailed = false;
       const active = () => visible && !disposed && !context.signal.aborted && document.visibilityState === "visible";
-      const diffGroups = () => groups.filter((group): group is typeof group & { key: DiffSection } => group.key !== "untracked");
-      const statusFingerprint = () => diffGroups().map(group => group.fingerprint).join("\n");
-      const openRows = () => diffGroups().flatMap(group => [...group.rows.values()].filter(row => row.details.open && row.row.isConnected).map(row => [group.key, row] as const));
+      const statusFingerprint = () => groups.map(group => group.fingerprint).join("\n");
+      const openRows = () => groups.flatMap(group => [...group.rows.values()].filter(row => row.details.open && row.row.isConnected).map(row => [group.key, row] as const));
       const note = (body: HTMLElement, value: string) => { body.replaceChildren(element("p", "diff-note", value)); };
-      const renderDiff = (section: DiffSection, row: DiffRow) => {
+      const renderDiff = (section: GroupKey, row: DiffRow) => {
         if (!row.details.open || diff && row.rendered === diff) return;
         row.rendered = diff;
         if (!diff) return note(row.body, diffRequest ? "Loading diff…" : diffFailed ? "Diff unavailable." : "");
         if (diff.state === "not-repository") return note(row.body, "Not a Git repository.");
-        const sections = row.paths.flatMap(path => diff?.state === "ready" ? diff[section].get(path) ?? [] : []);
+        const files = diff[section];
+        if (!files) return note(row.body, "This host does not diff untracked files.");
+        // A summarized untracked directory (`dir/`) shows every file beneath it.
+        const sections = row.paths.flatMap(path => path.endsWith("/") ? [...files].filter(([file]) => file.startsWith(path)).map(([, text]) => text) : files.get(path) ?? []);
         if (!sections.length) return note(row.body, diff.truncated ? "Not shown: the host truncated the diff." : "No diff for this file. It may have changed since the last check.");
         // diff2html escapes paths and diff lines; its output is the only markup inserted as HTML.
         row.body.innerHTML = html(sections.join(""), DIFF_OPTIONS);
@@ -320,7 +322,7 @@ ${diffs ? DIFF_STYLES + `
         try {
           const value = await context.project.gitDiff!(current.signal);
           if (diffRequest !== current) return;
-          diff = value.state === "ready" ? { state: "ready", staged: indexDiff(value.staged), unstaged: indexDiff(value.unstaged), truncated: value.truncated } : value;
+          diff = value.state === "ready" ? { state: "ready", staged: indexDiff(value.staged), unstaged: indexDiff(value.unstaged), untracked: value.untracked === undefined ? undefined : indexDiff(value.untracked), truncated: value.truncated } : value;
           diffFingerprint = fingerprint; diffFailed = false;
         } catch {
           if (diffRequest === current) diffFailed = true;
@@ -331,7 +333,7 @@ ${diffs ? DIFF_STYLES + `
       const render = (status: ProjectGitStatus) => {
         for (const group of groups) {
           const rowFor = (change: GitFileChange): HTMLElement => {
-            if (!diffs || group.key === "untracked") return fileRow(change);
+            if (!diffs) return fileRow(change);
             // Rows are keyed by path so an open diff survives polls; changed row content keeps the disclosure state.
             const previous = group.rows.get(change.path), key = JSON.stringify(change);
             if (previous?.key === key) return previous.row;

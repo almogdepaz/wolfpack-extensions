@@ -3157,10 +3157,9 @@ ${diffs ? DIFF_STYLES + `
       let request, hasResult = false;
       let diff, diffFingerprint = "", diffRequest, diffFailed = false;
       const active = () => visible && !disposed && !context.signal.aborted && document.visibilityState === "visible";
-      const diffGroups = () => groups.filter((group) => group.key !== "untracked");
-      const statusFingerprint = () => diffGroups().map((group) => group.fingerprint).join(`
+      const statusFingerprint = () => groups.map((group) => group.fingerprint).join(`
 `);
-      const openRows = () => diffGroups().flatMap((group) => [...group.rows.values()].filter((row) => row.details.open && row.row.isConnected).map((row) => [group.key, row]));
+      const openRows = () => groups.flatMap((group) => [...group.rows.values()].filter((row) => row.details.open && row.row.isConnected).map((row) => [group.key, row]));
       const note = (body, value) => {
         body.replaceChildren(element("p", "diff-note", value));
       };
@@ -3172,7 +3171,10 @@ ${diffs ? DIFF_STYLES + `
           return note(row.body, diffRequest ? "Loading diff…" : diffFailed ? "Diff unavailable." : "");
         if (diff.state === "not-repository")
           return note(row.body, "Not a Git repository.");
-        const sections = row.paths.flatMap((path) => diff?.state === "ready" ? diff[section].get(path) ?? [] : []);
+        const files = diff[section];
+        if (!files)
+          return note(row.body, "This host does not diff untracked files.");
+        const sections = row.paths.flatMap((path) => path.endsWith("/") ? [...files].filter(([file]) => file.startsWith(path)).map(([, text]) => text) : files.get(path) ?? []);
         if (!sections.length)
           return note(row.body, diff.truncated ? "Not shown: the host truncated the diff." : "No diff for this file. It may have changed since the last check.");
         row.body.innerHTML = html(sections.join(""), DIFF_OPTIONS);
@@ -3203,7 +3205,7 @@ ${diffs ? DIFF_STYLES + `
           const value = await context.project.gitDiff(current.signal);
           if (diffRequest !== current)
             return;
-          diff = value.state === "ready" ? { state: "ready", staged: indexDiff(value.staged), unstaged: indexDiff(value.unstaged), truncated: value.truncated } : value;
+          diff = value.state === "ready" ? { state: "ready", staged: indexDiff(value.staged), unstaged: indexDiff(value.unstaged), untracked: value.untracked === undefined ? undefined : indexDiff(value.untracked), truncated: value.truncated } : value;
           diffFingerprint = fingerprint;
           diffFailed = false;
         } catch {
@@ -3220,7 +3222,7 @@ ${diffs ? DIFF_STYLES + `
       const render = (status) => {
         for (const group of groups) {
           const rowFor = (change) => {
-            if (!diffs || group.key === "untracked")
+            if (!diffs)
               return fileRow(change);
             const previous = group.rows.get(change.path), key2 = JSON.stringify(change);
             if (previous?.key === key2)

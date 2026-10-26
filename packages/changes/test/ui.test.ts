@@ -53,6 +53,10 @@ function fileDiff(path: string, removed: string[], added: string[], quoted?: str
     `--- ${removed.length ? side("a/") + tab : "/dev/null"}`, `+++ ${added.length ? side("b/") + tab : "/dev/null"}`,
     `@@ -${removed.length ? 1 : 0},${removed.length} +${added.length ? 1 : 0},${added.length} @@`, ...removed.map(line => `-${line}`), ...added.map(line => `+${line}`)].join("\n") + "\n";
 }
+/** An untracked file as the host diffs it: `git diff --no-index /dev/null <path>`. */
+function newFileDiff(path: string, added: string[]): string {
+  return [`diff --git a/${path} b/${path}`, "new file mode 100644", "index 0000000..2222222", "--- /dev/null", `+++ b/${path}`, `@@ -0,0 +1,${added.length} @@`, ...added.map(line => `+${line}`)].join("\n") + "\n";
+}
 const cssString = (value: string) => value.replace(/["\\]/g, "\\$&").replace(/\n/g, "\\a ");
 const fileDisclosure = (page: Page, group: string, path: string) => page.locator(`[data-group="${group}"] details.file-diff`).filter({ has: page.locator(`.path[title="${cssString(path)}"]`) });
 const diffLines = (page: Page, group: string, path: string) => fileDisclosure(page, group, path).locator(".d2h-code-line-ctn").allTextContents();
@@ -405,7 +409,6 @@ test("Changes renders per-file staged and unstaged diffs from one lazy gitDiff r
     await page.waitForFunction(() => document.querySelector(".wolfpack-changes .branch")?.textContent === "diffs");
     const calls = () => page.evaluate(() => (globalThis as any).__diff.calls as number);
     expect(await calls()).toBe(0);
-    expect(await page.locator('[data-group="untracked"] details.file-diff').count()).toBe(0);
     expect(await page.getByRole("button", { name: "Refresh diffs" }).isVisible()).toBe(false);
     await fileDisclosure(page, "staged", "src/a.ts").locator(":scope > summary").click();
     await page.waitForFunction(() => document.querySelector('[data-group="staged"] .d2h-code-line-ctn'));
@@ -428,6 +431,43 @@ test("Changes renders per-file staged and unstaged diffs from one lazy gitDiff r
     expect(await fileDisclosure(page, "staged", "bin.dat").locator(".d2h-code-line").textContent()).toContain("Binary file");
     expect(await fileDisclosure(page, "staged", "late.ts").locator(".diff-note").textContent()).toBe("No diff for this file. It may have changed since the last check.");
     expect(await page.evaluate(() => (globalThis as any).__diff.signals[0].aborted)).toBe(false);
+    expect(errors).toEqual([]);
+  } finally { await fixture.close(); }
+}, 20_000);
+
+test("Changes diffs untracked files and summarized untracked directories as new files from the same lazy read", async () => {
+  const fixture = await component({ diff: true });
+  try {
+    const { page } = fixture; await page.clock.install();
+    const errors = pageErrors(page);
+    const untracked = newFileDiff("loose.txt", ["hello"]) + newFileDiff("fresh/a.ts", ["a"]) + newFileDiff("fresh/sub/b.ts", ["b"]) + newFileDiff("freshly.txt", ["x"]);
+    await page.evaluate(untracked => {
+      (globalThis as any).__diff.value = { state: "ready", staged: "", unstaged: "", untracked, truncated: false };
+      (globalThis as any).__git.value = { state: "ready", branch: "new files", detached: false, truncated: false, staged: [], unstaged: [],
+        untracked: [{ path: "loose.txt", status: "untracked" }, { path: "fresh/", status: "untracked" }, { path: "freshly.txt", status: "untracked" }] };
+      (globalThis as any).__sample.controller.setVisible(true);
+    }, untracked);
+    await page.waitForFunction(() => document.querySelector(".wolfpack-changes .branch")?.textContent === "new files");
+    const calls = () => page.evaluate(() => (globalThis as any).__diff.calls as number);
+    expect(await page.locator('[data-group="untracked"] details.file-diff').count()).toBe(3);
+    expect(await calls()).toBe(0);
+    await fileDisclosure(page, "untracked", "loose.txt").locator(":scope > summary").click();
+    await page.waitForFunction(() => document.querySelector('[data-group="untracked"] .d2h-code-line-ctn'));
+    expect(await diffLines(page, "untracked", "loose.txt")).toEqual(["hello"]);
+    expect(await calls()).toBe(1);
+    // A summarized directory shows every file beneath it, and nothing from a sibling sharing its name prefix.
+    await fileDisclosure(page, "untracked", "fresh/").locator(":scope > summary").click();
+    await flushTasks(page);
+    expect(await diffLines(page, "untracked", "fresh/")).toEqual(["a", "b"]);
+    expect(await calls()).toBe(1);
+    const accessibility = await new AxeBuilder({ page }).include(".wolfpack-changes").withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(accessibility.violations.filter(v => ["serious", "critical"].includes(v.impact ?? ""))).toEqual([]);
+    // Hosts from before untracked diffs omit the section: say so instead of claiming the file changed.
+    await page.evaluate(() => { (globalThis as any).__diff.value = { state: "ready", staged: "", unstaged: "", truncated: false }; });
+    await page.getByRole("button", { name: "Refresh diffs" }).click();
+    await page.waitForFunction(() => document.querySelector('[data-group="untracked"] .diff-note'));
+    expect(await calls()).toBe(2);
+    for (const path of ["loose.txt", "fresh/"]) expect(await fileDisclosure(page, "untracked", path).locator(".diff-note").textContent()).toBe("This host does not diff untracked files.");
     expect(errors).toEqual([]);
   } finally { await fixture.close(); }
 }, 20_000);
