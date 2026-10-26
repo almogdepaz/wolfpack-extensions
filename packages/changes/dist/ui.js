@@ -3078,7 +3078,7 @@ ${diffs ? DIFF_STYLES + `
 .wolfpack-changes .diff{min-width:0;margin:2px 0 6px 12px}
 .wolfpack-changes .diff-note{margin:0;padding:6px 8px;font-size:12px;color:var(--text-muted,#a4b2a9)}
 .wolfpack-changes .d2h-file-header{display:none}
-.wolfpack-changes .d2h-file-wrapper{margin:0 0 4px;border-radius:4px}
+.wolfpack-changes .d2h-file-wrapper{margin:0 0 4px;border-radius:4px;position:relative}/* containing block for diff2html's absolutely positioned line numbers, so they scroll with .files */
 .wolfpack-changes .d2h-file-diff{overflow-x:auto}
 .wolfpack-changes .d2h-diff-table{font:12px/1.5 var(--font-mono,monospace)}
 .wolfpack-changes .diff-bar{display:flex;align-items:center;gap:8px;flex:none;min-width:0;font-size:12px;color:var(--text-muted,#a4b2a9)}

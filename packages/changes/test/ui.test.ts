@@ -545,6 +545,45 @@ test("Changes renders hostile diff content inert, scopes diff styles and keeps l
   } finally { await fixture.close(); }
 }, 20_000);
 
+test("Changes keeps diff line numbers on their rows and inside the file list while it scrolls", async () => {
+  const fixture = await component({ diff: true });
+  try {
+    const { page } = fixture; await page.clock.install();
+    const errors = pageErrors(page);
+    const wide = `const value = "${"x".repeat(2000)}";`;
+    const staged = fileDiff("src/long.ts", Array.from({ length: 60 }, (_, i) => `old ${i}`), [wide, ...Array.from({ length: 80 }, (_, i) => `new ${i}`)]);
+    await page.evaluate(staged => {
+      (globalThis as any).__diff.value = { state: "ready", staged, unstaged: "", truncated: false };
+      (globalThis as any).__git.value = { state: "ready", branch: "long", detached: false, truncated: false, staged: [{ path: "src/long.ts", status: "modified" }], unstaged: [], untracked: [] };
+      (globalThis as any).__sample.controller.setVisible(true);
+    }, staged);
+    await page.waitForFunction(() => document.querySelector(".wolfpack-changes .branch")?.textContent === "long");
+    await fileDisclosure(page, "staged", "src/long.ts").locator(":scope > summary").click();
+    await page.waitForFunction(() => document.querySelectorAll(".wolfpack-changes .d2h-code-line-ctn").length === 141);
+    // diff2html positions line numbers absolutely; without a containing block inside `.files` they stay put (and stay painted) while the list scrolls.
+    const geometry = await page.evaluate(wide => {
+      const files = document.querySelector(".wolfpack-changes .files")!, box = files.getBoundingClientRect();
+      files.scrollTop = 300;
+      const rows = [...document.querySelectorAll(".wolfpack-changes .d2h-diff-tbody tr")], numberOf = (row: Element) => row.querySelector(".d2h-code-linenumber")!;
+      const drift = rows.map(row => Math.round(numberOf(row).getBoundingClientRect().top - row.getBoundingClientRect().top));
+      const escaped = rows.filter(row => { const rect = numberOf(row).getBoundingClientRect(), x = rect.left + 10, y = rect.top + rect.height / 2;
+        return (y < box.top || y > box.bottom) && y >= 0 && y <= innerHeight && !!document.elementFromPoint(x, y)?.closest(".d2h-code-linenumber"); }).length;
+      // Horizontal scrolling of one file still keeps the number gutter in place while the code moves.
+      const row = rows.find(row => row.querySelector(".d2h-code-line-ctn")?.textContent === wide)!, code = row.querySelector(".d2h-code-line")!;
+      const scroller = document.querySelector(".wolfpack-changes .d2h-file-diff")!, before = { number: numberOf(row).getBoundingClientRect().left, code: code.getBoundingClientRect().left };
+      scroller.scrollLeft = 200;
+      return { scrollTop: files.scrollTop, drift, escaped, scrollLeft: scroller.scrollLeft, numberShift: numberOf(row).getBoundingClientRect().left - before.number, codeShift: code.getBoundingClientRect().left - before.code };
+    }, wide);
+    expect(geometry.scrollTop).toBe(300);
+    expect(geometry.drift).toEqual(geometry.drift.map(() => 0));
+    expect(geometry.escaped).toBe(0);
+    expect(geometry.scrollLeft).toBe(200);
+    expect(geometry.numberShift).toBe(0);
+    expect(geometry.codeShift).toBe(-200);
+    expect(errors).toEqual([]);
+  } finally { await fixture.close(); }
+}, 20_000);
+
 test("Changes manifest and default registration declare only the context view", async () => {
   const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   expect(manifest.wolfpack).toMatchObject({ manifestVersion: 1, apiVersion: 1, id: "changes", ui: "dist/ui.js", skills: [], documents: [] });
