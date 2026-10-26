@@ -1,6 +1,6 @@
 {
   "name": "wolfpack-extension-changes",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read-only Git status context view for Wolfpack.",
   "license": "MIT",
   "files": ["dist", "README.md", "LICENSE"],

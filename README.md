@@ -4,7 +4,7 @@ Independent, prebuilt Wolfpack extension packages. This repository is separate f
 
 ## Packages
 
-- `wolfpack-extension-changes@0.1.0` (`changes`): read-only local Git status.
+- `wolfpack-extension-changes@0.1.1` (`changes`): read-only local Git status.
 - `wolfpack-extension-agent-context@0.1.0` (`agent-context`): scoped agent-authored context, schema, and optional Pi skill.
 - `wolfpack-extension-notes@0.1.0` (`notes`): scoped local notes and a vertical-stack recipe.
 - `wolfpack-extension-sketch@0.1.0` (`sketch`): touch-first drawing board, structured compose and scoped board documents.
@@ -16,7 +16,7 @@ All packages target the prerelease Extensions APIv1. `wolfpack-bridge@1.6.24` pu
 Only exact npm coordinates and absolute package directories are currently supported by Wolfpack:
 
 ```sh
-wolfpack extensions install npm:wolfpack-extension-changes@0.1.0 --trust-browser-code
+wolfpack extensions install npm:wolfpack-extension-changes@0.1.1 --trust-browser-code
 wolfpack extensions install /absolute/path/to/wolfpack-extensions/packages/agent-context --trust-browser-code --skills pi
 wolfpack extensions install /absolute/path/to/wolfpack-extension-notes --trust-browser-code
 ```

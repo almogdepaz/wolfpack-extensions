@@ -27,8 +27,8 @@ try {
   const served = new Set<string>(); let registry!: ReturnType<typeof Bun.serve>;
   registry = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(request) {
     const path = new URL(request.url).pathname;
-    if (path === "/wolfpack-extension-changes/0.1.0") { served.add("metadata"); return Response.json({ name: "wolfpack-extension-changes", version: "0.1.0", dist: { tarball: `${registry.url.origin}/wolfpack-extension-changes-0.1.0.tgz`, integrity } }); }
-    if (path === "/wolfpack-extension-changes-0.1.0.tgz") { served.add("tarball"); return new Response(archive); }
+    if (path === "/wolfpack-extension-changes/0.1.1") { served.add("metadata"); return Response.json({ name: "wolfpack-extension-changes", version: "0.1.1", dist: { tarball: `${registry.url.origin}/wolfpack-extension-changes-0.1.1.tgz`, integrity } }); }
+    if (path === "/wolfpack-extension-changes-0.1.1.tgz") { served.add("tarball"); return new Response(archive); }
     return new Response("not found", { status: 404 });
   } });
   try {
@@ -37,9 +37,9 @@ try {
     try {
       const { ExtensionRuntime } = await import(pathToFileURL(join(hostRoot, "src", "extensions", "runtime.ts")).href);
       const runtime = new ExtensionRuntime({ root: join(runtimeHome, ".wolfpack", "extensions"), installationId: "11111111-1111-4111-8111-111111111111" });
-      const installed = await runtime.install({ source: "npm:wolfpack-extension-changes@0.1.0", registryUrl: registry.url.origin, trustBrowserCode: true });
+      const installed = await runtime.install({ source: "npm:wolfpack-extension-changes@0.1.1", registryUrl: registry.url.origin, trustBrowserCode: true });
       const item = runtime.catalog().installations[0], asset = runtime.asset("changes", installed.installation.package.digest, "dist/ui.js");
-      if (!item || item.package.version !== "0.1.0" || item.ui?.path !== "dist/ui.js" || !asset.bytes.toString().includes("wolfpack-changes") || !served.has("metadata") || !served.has("tarball")) throw new Error("SRI runtime fixture did not install the allowlisted bundle");
+      if (!item || item.package.version !== "0.1.1" || item.ui?.path !== "dist/ui.js" || !asset.bytes.toString().includes("wolfpack-changes") || !served.has("metadata") || !served.has("tarball")) throw new Error("SRI runtime fixture did not install the allowlisted bundle");
     } finally { if (previousHome === undefined) delete process.env.HOME; else process.env.HOME = previousHome; }
     // Public CLI uses the exact unpacked archive; it intentionally receives no registry override.
     const cliHome = join(stage, "cli-home"); mkdirSync(cliHome, { recursive: true });

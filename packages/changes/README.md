@@ -7,8 +7,8 @@ A read-only Git status context view for Wolfpack. It shows the selected **local*
 The package contains its prebuilt browser bundle; installation neither clones Wolfpack nor runs a build, lifecycle script, or runtime dependency install.
 
 ```sh
-wolfpack extensions install npm:wolfpack-extension-changes@0.1.0 --trust-browser-code
-wolfpack extensions update npm:wolfpack-extension-changes@0.1.0 --trust-browser-code
+wolfpack extensions install npm:wolfpack-extension-changes@0.1.1 --trust-browser-code
+wolfpack extensions update npm:wolfpack-extension-changes@0.1.1 --trust-browser-code
 wolfpack extensions disable changes
 wolfpack extensions enable changes
 wolfpack extensions remove changes
