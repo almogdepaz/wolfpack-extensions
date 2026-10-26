@@ -9,7 +9,7 @@ Independent, prebuilt Wolfpack extension packages. This repository is separate f
 - `wolfpack-extension-notes@0.1.0` (`notes`): scoped local notes and a vertical-stack recipe.
 - `wolfpack-extension-sketch@0.1.0` (`sketch`): touch-first drawing board, structured compose and scoped board documents.
 
-All packages target the prerelease Extensions APIv1. `wolfpack-bridge@1.6.24` published to npm does **not** provide APIv1 and is not compatible with these packages. Changes `0.1.0` is [published on npm](https://www.npmjs.com/package/wolfpack-extension-changes/v/0.1.0); Agent Context and Notes remain prepared but unpublished.
+All packages target the prerelease Extensions APIv1. `wolfpack-bridge@1.6.24` published to npm does **not** provide APIv1 and is not compatible with these packages. Changes `0.1.1` is [published on npm](https://www.npmjs.com/package/wolfpack-extension-changes/v/0.1.1); Agent Context and Notes remain prepared but unpublished.
 
 ## Install
 
