@@ -12,3 +12,18 @@ export function isolatedPackageManagerEnv(root: string): Record<string, string> 
     npm_config_ignore_scripts: "true", NPM_CONFIG_IGNORE_SCRIPTS: "true", BUN_INSTALL_CACHE_DIR: join(cache, "bun"),
   };
 }
+
+/**
+ * Test-time shipping artifact: the package exactly as `npm pack` ships it (package-gate flags), unpacked to a plain
+ * directory. Workspace sources can carry package-manager links (e.g. Bun's isolated node_modules) that the host
+ * correctly rejects; fixtures install and read this instead.
+ */
+export function unpackShippedPackage(packageRoot: string, stage: string): string {
+  const destination = join(stage, "shipped");
+  mkdirSync(destination, { recursive: true });
+  const packed = Bun.spawnSync(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", destination], { cwd: packageRoot, env: isolatedPackageManagerEnv(join(stage, "npm")), stdout: "pipe", stderr: "pipe" });
+  if (packed.exitCode !== 0) throw new Error(`npm pack failed: ${packed.stderr.toString()}`);
+  const [info] = JSON.parse(packed.stdout.toString()) as Array<{ filename: string }>;
+  if (!info || Bun.spawnSync(["tar", "-xzf", join(destination, info.filename), "-C", destination]).exitCode !== 0) throw new Error("could not unpack the npm artifact");
+  return join(destination, "package");
+}

@@ -40,7 +40,19 @@ const view: ContextViewContribution = {
     }
     const guidance = node("div", "wac-guidance");
     const request = "Update this session's context using the wolfpack-agent-context skill.";
-    guidance.append(node("p", "", "Ask your agent to publish a brief for this session. It will resolve the session automatically."), node("p", "wac-request", request), copyButton("Copy request", request), node("p", "", "Context is not extracted automatically from terminal output."));
+    guidance.append(
+      node("p", "", "Installing the Wolfpack extension adds this panel, not the Claude Code plugin or Pi companion. Automatic updates need a separate agent integration; installing a skill alone is not enough."),
+      node("h3", "", "Setup for automatic updates"),
+      node("p", "", "Claude Code: add the repository marketplace, then install the plugin:"),
+      node("code", "wac-request", "claude plugin marketplace add /path/to/wolfpack-extensions"),
+      node("code", "wac-request", "claude plugin install wolfpack-agent-context@wolfpack-extensions"),
+      node("p", "", "Pi: install the companion:"),
+      node("code", "wac-request", "pi install /path/to/wolfpack-extensions/packages/agent-context"),
+      node("p", "", "Replace /path/to/wolfpack-extensions with your local repository directory. Use the integration for your agent, or both if you use both."),
+      node("p", "", "Start a new session in Wolfpack after setup; /clear does not load a newly installed plugin. If already set up, no update has been received yet."),
+      node("p", "", "Manual recovery is not automatic setup. The bundled skill explains explicit publication recovery; context is never scraped from terminal output."),
+      node("p", "wac-request", request), copyButton("Copy request", request),
+    );
     const unavailable = node("p", "wac-feedback", "The document could not be read or did not match the context format. Ask the agent to check its published document. Your local draft is unaffected.");
     const content = node("div", "wac-content");
     const clear = node("p", "wac-clear", "✓  No blockers reported");
@@ -53,8 +65,6 @@ const view: ContextViewContribution = {
       return { element, heading, count, list };
     }
     const plan = section("Plan"); const next = section("Next steps"); const decisions = section("Decisions"); const blockers = section("Blockers", "wac-blockers");
-    const progress = node("progress", "wac-progress"); progress.setAttribute("aria-label", "Agent-reported plan completion");
-    plan.heading.after(progress);
     content.append(plan.element, next.element, decisions.element);
 
     function tool(title: string, key: string, defaultOpen = false) {
@@ -64,15 +74,28 @@ const view: ContextViewContribution = {
       element.addEventListener("toggle", () => save(key, String(element.open)), { signal: events.signal });
       return { element, body };
     }
+    const focusContent = node("div", "wac-focus");
+    const now = section("Now"); const needsYou = section("Needs you", "wac-needs-you");
+    const noActions = node("p", "wac-action-state"); needsYou.element.append(noActions);
+    const knowledge = section("Need to know"); const focusNext = section("Next");
+    const moreKnowledge = tool("More need to know", "knowledge-open"); const extraKnowledge = section("Additional need to know"); moreKnowledge.body.append(extraKnowledge.element);
+    const historyTool = tool("Decisions and completed work", "history-open"); const history = section("History"); historyTool.body.append(history.element);
+    const freshness = node("p", "wac-freshness"); const activity = node("p", "wac-activity");
+    const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
+    focusContent.append(now.element, needsYou.element, knowledge.element, moreKnowledge.element, focusNext.element, freshness, activity, historyTool.element);
     const draft = node("textarea"); draft.placeholder = "Ideas to keep for later…"; draft.setAttribute("aria-label", "Local draft"); draft.value = saved("draft") ?? "";
     const draftTool = tool("Local draft", "draft-open", draft.value.length > 0);
     const draftNote = node("p", "", "Saved in this browser only. Not published to the agent.");
     draft.addEventListener("input", () => setText(draftNote, save("draft", draft.value) ? "Saved in this browser only. Not published to the agent." : "Could not save in this browser. Copy your draft before leaving."), { signal: events.signal });
     draftTool.body.append(draft, draftNote);
     const sessionTool = tool("Session details", "session-open");
-    sessionTool.body.append(node("code", "wac-session-id", context.scope.sessionId), copyButton("Copy session ID", context.scope.sessionId), node("p", "", "Agent-authored context — not verified task or execution evidence."));
+    const provenance = node("div", "wac-provenance"); provenance.hidden = true;
+    const semanticTime = node("p"); const activityTime = node("p"); const freshnessNote = node("p");
+    const producer = node("p"); const anchor = node("p"); const boundary = node("p");
+    provenance.append(semanticTime, activityTime, freshnessNote, producer, anchor, boundary, node("p", "", "Last reported activity is not live presence; idle does not mean complete."));
+    sessionTool.body.append(node("code", "wac-session-id", context.scope.sessionId), copyButton("Copy session ID", context.scope.sessionId), provenance, node("p", "", "Agent-authored context — not verified task or execution evidence."));
     const tools = node("div", "wac-tools"); tools.append(draftTool.element, sessionTool.element);
-    root.append(node("style", "", styles), meta, goalCard, guidance, unavailable, blockers.element, clear, content, tools, feedback);
+    root.append(node("style", "", styles), meta, goalCard, guidance, unavailable, focusContent, blockers.element, clear, content, tools, feedback);
     container.replaceChildren(root);
 
     type Row = { li: HTMLLIElement; disclosure: HTMLDetailsElement; summary: HTMLElement; plain: HTMLElement; caption: HTMLElement; title: HTMLElement; status: HTMLElement; marker: HTMLElement; body: HTMLElement; arrow: SVGSVGElement };
@@ -100,7 +123,8 @@ const view: ContextViewContribution = {
         if (!row) { row = makeRow(key, name === "blockers"); rows.set(key, row); }
         const status = planStatuses?.[index]; const hasDetails = Boolean(bullet.details);
         setText(row.title, bullet.text); setText(row.body, bullet.details ?? "");
-        setText(row.status, status ? statuses[status].label : ""); row.status.hidden = !status;
+        const annotation = typeof value === "object" && "owner" in value ? String(value.owner) : typeof value === "object" && "kind" in value ? String(value.kind) : "";
+        setText(row.status, status ? statuses[status].label : annotation); row.status.hidden = !status && !annotation;
         setText(row.marker, status ? statuses[status].marker : name === "next" ? String(index + 1) : name === "blockers" ? "!" : "·");
         row.li.dataset.status = status ?? (name === "blockers" ? "blocked" : "");
         row.disclosure.hidden = !hasDetails; row.plain.hidden = hasDetails; row.arrow.style.display = hasDetails ? "" : "none";
@@ -110,9 +134,12 @@ const view: ContextViewContribution = {
         cursor = row.li.nextElementSibling;
       });
       for (const [key, row] of rows) {
-        if (row.li.parentElement === group.list && !wanted.has(key)) { row.disclosure.ontoggle = null; row.li.remove(); rows.delete(key); }
+        if (row.li.parentElement === group.list && !wanted.has(key)) row.li.remove();
       }
       group.element.hidden = values.length === 0; setText(group.count, String(values.length));
+    }
+    function pruneRows(): void {
+      for (const [key, row] of rows) if (!root.contains(row.li)) { row.disclosure.ontoggle = null; rows.delete(key); }
     }
     const render = (value: unknown, revision: number) => {
       if (stopped || !acceptsRevision(latest, revision)) return; latest = revision;
@@ -120,21 +147,41 @@ const view: ContextViewContribution = {
       const model = contextViewModel(value, revision);
       setText(revisionLabel, model.state === "empty" ? "Not published" : `Revision ${model.revision}`);
       guidance.hidden = model.state !== "empty"; unavailable.hidden = model.state !== "error";
+      focusContent.hidden = provenance.hidden = model.state !== "focus";
       content.hidden = clear.hidden = blockers.element.hidden = model.state !== "ready";
+      if (model.state === "focus") {
+        const value = model.document;
+        setText(goal, value.goal);
+        renderList(now, "now", [value.now]); renderList(needsYou, "needs-you", value.needsYou);
+        renderList(knowledge, "knowledge", value.needToKnow.slice(0, 3));
+        renderList(extraKnowledge, "knowledge", value.needToKnow.slice(3)); moreKnowledge.element.hidden = value.needToKnow.length <= 3;
+        renderList(focusNext, "focus-next", value.nextSteps); renderList(history, "history", value.history);
+        historyTool.element.hidden = value.history.length === 0; pruneRows();
+        setText(freshness, `Updated ${dateTime.format(new Date(value.updatedAt))}${value.freshness === "reviewed" ? "" : value.freshness === "missed" ? " · refresh missed" : " · unreviewed"}`);
+        setText(activity, `Last reported: ${value.activity.state} · not live`);
+        setText(semanticTime, `Context updated: ${value.updatedAt}`); setText(activityTime, `Activity observed: ${value.activity.observedAt}`);
+        setText(freshnessNote, value.freshness === "reviewed" ? "Agent-authored snapshot reviewed only at that update; later changes may be missing." : value.freshness === "missed" ? "Refresh missed; context may be out of date." : "Context not reviewed for latest activity.");
+        // Each harness shows only its own native provenance fields.
+        const source = value.source;
+        if (source.harness === "pi") { setText(producer, `Producer: Pi session ${source.sessionId}`); setText(anchor, `Branch anchor: ${source.branchId ?? "none"}`); setText(boundary, `Covered entry: ${source.coveredEntryId ?? "none"}`); }
+        else { setText(producer, `Producer: Claude Code session ${source.sessionId}`); setText(anchor, `Request: ${source.promptId ?? "none"}`); setText(boundary, `Covered tool result: ${source.coveredToolUseId ?? "none"}`); }
+        needsYou.element.hidden = false; noActions.hidden = value.needsYou.length > 0;
+        setText(noActions, value.freshness === "reviewed" ? "No action requested in this update." : "User actions unknown in the latest activity.");
+        if (active?.isConnected && active.getClientRects().length && document.activeElement !== active) active.focus({ preventScroll: true });
+        return;
+      }
       if (model.state !== "ready") { setText(goal, model.state === "empty" ? "No context yet" : "Context unavailable"); return; }
       setText(goal, model.goal);
       renderList(plan, "plan", model.planItems, model.planItems.map((item) => item.status));
-      renderList(next, "next", model.nextSteps); renderList(decisions, "decisions", model.decisions); renderList(blockers, "blockers", model.blockers);
+      renderList(next, "next", model.nextSteps); renderList(decisions, "decisions", model.decisions); renderList(blockers, "blockers", model.blockers); pruneRows();
       clear.hidden = model.blockers.length > 0;
-      const completed = model.planItems.filter((item) => item.status === "complete").length;
-      progress.max = Math.max(1, model.planItems.length); progress.value = completed;
-      progress.setAttribute("aria-valuetext", `${completed} of ${model.planItems.length} items complete, reported by the agent`);
-      setText(plan.count, `${completed} / ${model.planItems.length} done`);
+      setText(clear, "No blockers reported in this legacy context; freshness unknown.");
+      setText(revisionLabel, `Revision ${model.revision} · legacy; freshness unknown`);
       if (active?.isConnected && active.getClientRects().length && document.activeElement !== active) active.focus({ preventScroll: true });
     };
     // No revision callback yet is loading, not an assertion that the document is empty.
     setText(goal, "Loading context…"); setText(revisionLabel, "Loading");
-    guidance.hidden = unavailable.hidden = content.hidden = blockers.element.hidden = clear.hidden = true;
+    guidance.hidden = unavailable.hidden = content.hidden = focusContent.hidden = blockers.element.hidden = clear.hidden = true;
     const cleanup = () => {
       if (stopped) return; stopped = true; events.abort(); unsubscribe();
       for (const row of rows.values()) row.disclosure.ontoggle = null;

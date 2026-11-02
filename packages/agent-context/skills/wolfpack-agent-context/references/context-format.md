@@ -1,27 +1,36 @@
-# Agent Context document format
+# Focus document v3
 
-Publish one bounded JSON object using the existing version-1 schema. Each bullet is a text string: **short headline, blank line, supporting details**. The widget displays the headline first and lets the user expand each item independently.
+`update_focus` accepts `{ snapshot, reconcileRevision? }`. `snapshot` contains exactly these semantic fields (illustrative, not live state):
 
 ```json
 {
-  "schemaVersion": 1,
-  "goal": "Make session context easier to scan",
-  "planItems": [
-    { "id": "item-disclosures", "text": "Add collapsible items\n\nGive each item a clear headline and its own disclosure. Preserve expanded items when context updates.", "status": "in_progress" }
-  ],
-  "decisions": ["Use native disclosures\n\nKeyboard and touch users can open each item without custom interaction conventions."],
-  "blockers": [],
-  "nextSteps": ["Review the narrow sidebar\n\nCheck headline wrapping, item separation and expanded details at the smallest supported width."]
+  "goal": "Keep session context useful without check-ins",
+  "now": { "id": "publisher", "text": "Build automatic publication", "details": "So the panel follows meaningful changes." },
+  "needsYou": [{ "id": "review", "text": "Review the narrow panel", "details": "Choose whether this meets your needs." }],
+  "needToKnow": [{ "id": "local", "text": "Changes are local; nothing installed" }],
+  "nextSteps": [{ "id": "test", "text": "Test resume", "owner": "agent" }],
+  "history": [{ "id": "decision", "text": "Use structured updates", "kind": "decision" }]
 }
 ```
 
-- Prefer meaningful headlines of roughly 3–8 words. Put explanation, rationale and caveats after the first blank line (`\n\n` in JSON), rather than repeating the headline. Further paragraphs stay in the expanded details.
-- Keep plan `id` values stable and unique. For decisions, blockers and next steps, keep the headline stable when refining the same item's details. Expansion follows plan IDs or other item headlines across revisions/reordering. Distinct items should have distinct headlines.
-- `status` is exactly `pending`, `in_progress`, `complete`, or `blocked`. These are agent-reported states, not independently verified execution.
-- Use empty arrays for absent sections. Do not invent blockers, placeholder details or evidence to fill the widget.
-- Existing single-paragraph strings remain fully readable; without actual details they do not show an empty expander. No schema migration is needed. Do not publish object entries in string arrays or add separate `details` fields: those are not part of the installed schema.
-- Each string is at most 16000 characters and each list at most 200 items. The entire document must also fit the server's bounded byte/depth/item limits.
+- Goal: one stable desired outcome, 1–1000 characters. Now: one primary focus, with optional rationale in `details`.
+- Every item: stable unique-in-section `id` (1–128 characters), concise `text` headline (1–240), optional nonempty `details` (up to 2000). Use separate fields, not magic prefixes or reparsed prose. No HTML/Markdown execution.
+- `needsYou`: up to 20 actual questions, decisions, approvals or actions the user can resolve. All are visible; do not relabel ordinary technical blockers as user obligations. Empty means “no action requested in this update” only when reviewed; unknown/missed updates never promise nothing is needed.
+- `needToKnow`: up to 20 current decision-relevant facts/constraints/discoveries/blockers. Prefer three; additional critical items remain accessible, not silently truncated.
+- `nextSteps`: at most three ordered intentions, each with explicit `owner: "agent" | "user"`. These confer no execution authority.
+- `history`: up to 20 bounded recent items with `kind: "decision" | "completed"`; collapsed by default. Agent-reported completion requires actual evidence, never idle/publication inference. Not a transcript or second project task database.
+- Use empty arrays for absent lists. Do not fill space with invented blockers, details or evidence. Keep IDs stable through wording changes/reordering; local draft text is browser-only and has not been communicated to the agent.
 
-All strings are data rendered as text. Do not include HTML, executable instructions, credentials, raw transcripts, or fabricated evidence.
+The Pi companion or Claude Code plugin validates and adds the wire fields:
 
-A receipt means the document was stored at a revision; it does not prove browser rendering, authorship or completed work.
+- `schemaVersion: 3`;
+- `source`: exactly one producer shape, never mixed:
+  - Pi: `{ harness: "pi", sessionId, branchId, coveredEntryId }`: exact Pi session and branch anchor plus covered structured user/tool entry; may be null at an empty root;
+  - Claude Code: `{ harness: "claude", sessionId, promptId, coveredToolUseId }`: exact native session id, the request's native `prompt_id` (null when Claude omits it) and the last tool result already delivered to the model when it issued the update (null when the snapshot follows the prompt directly). Successful self-maintenance is never a boundary; failed or denied maintenance is;
+- `updatedAt`: canonical UTC ISO timestamp of the last semantic review;
+- `freshness: "reviewed" | "unreviewed" | "missed"`: reviewed at that update, not an assurance that later work is covered;
+- `activity: { state: "working" | "idle" | "interrupted" | "unknown", observedAt }`: independently dated last observed runtime activity, never live presence or semantic completion.
+
+The complete UTF-8 document must fit 64 KiB and the host's depth/node budgets even when all individual fields fit. Extra properties, incompatible versions, duplicate IDs, malformed timestamps and missing owners are rejected by the producer/browser; the host independently applies the shipped bounded static schema. Strings are inert data: no credentials, raw transcripts, hidden reasoning or fabricated verification evidence.
+
+`schemas/context.schema.json` is the v3 wire contract, frozen by package-gate digest. Legacy v1 display support never fabricates typed current focus, ownership or freshness; v2 Pi-only documents are not reinterpreted. Publishing v3 into an older installed schema fails explicitly; clean reinstall is an operator deployment decision, not data publication.

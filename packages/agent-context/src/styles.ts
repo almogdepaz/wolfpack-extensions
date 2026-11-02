@@ -43,16 +43,16 @@ export const styles = `
 .wolfpack-agent-context .wac-chevron { flex: 0 0 14px; width: 14px; height: 14px; margin-top: 3px; fill: none; stroke: var(--wac-muted); stroke-width: 1.6; transition: transform .15s ease; }
 .wolfpack-agent-context details[open] > summary .wac-chevron { transform: rotate(90deg); }
 .wolfpack-agent-context .wac-detail { padding: 10px 12px 12px 37px; border-top: 1px solid var(--wac-border); color: var(--text-secondary, #bac6be); font-size: 12px; line-height: 1.65; white-space: pre-wrap; }
-.wolfpack-agent-context .wac-progress { width: 100%; height: 3px; border: 0; border-radius: 3px; overflow: hidden; background: var(--wac-border); color: var(--wac-accent); accent-color: var(--wac-accent); }
-.wolfpack-agent-context .wac-progress::-webkit-progress-bar { background: var(--wac-border); }
-.wolfpack-agent-context .wac-progress::-webkit-progress-value { background: var(--wac-accent); }
-.wolfpack-agent-context .wac-progress::-moz-progress-bar { background: var(--wac-accent); }
+.wolfpack-agent-context .wac-focus { display: grid; gap: 16px; min-width: 0; }
+.wolfpack-agent-context .wac-needs-you .wac-item { border-left: 3px solid var(--warning, #ebca78); }
+.wolfpack-agent-context .wac-freshness, .wolfpack-agent-context .wac-activity { color: var(--wac-muted); font-size: 11px; }
 .wolfpack-agent-context .wac-clear { color: var(--wac-muted); font-size: 11px; }
 .wolfpack-agent-context .wac-blockers h3 { color: var(--warning, #ebca78); }
 .wolfpack-agent-context .wac-tools { display: grid; border-top: 1px solid var(--wac-border); }
 .wolfpack-agent-context .wac-tool > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; color: var(--wac-muted); font-size: 12px; }
 .wolfpack-agent-context .wac-tool > summary:hover { color: var(--wac-text); }
 .wolfpack-agent-context .wac-tool-body { display: grid; gap: 10px; padding-bottom: 12px; color: var(--wac-muted); font-size: 11px; }
+.wolfpack-agent-context .wac-provenance { display: grid; gap: 6px; }
 .wolfpack-agent-context .wac-session-id { font: 11px/1.6 var(--font-mono, monospace); color: var(--text-secondary, #bac6be); user-select: all; }
 .wolfpack-agent-context textarea { display: block; width: 100%; min-height: 112px; resize: vertical; padding: 10px; border: 1px solid var(--border-input, #36433b); border-radius: 7px; background: var(--bg-inset, #0d100e); color: var(--wac-text); font: inherit; line-height: 1.6; }
 .wolfpack-agent-context textarea::placeholder { color: var(--wac-muted); }

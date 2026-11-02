@@ -1,0 +1,14 @@
+{
+  "name": "wolfpack-extensions",
+  "owner": {
+    "name": "Almog De Paz"
+  },
+  "description": "Local Claude Code plugins from the wolfpack-extensions repository.",
+  "plugins": [
+    {
+      "name": "wolfpack-agent-context",
+      "source": "./packages/agent-context",
+      "description": "Keeps the Wolfpack session focus panel current from Claude Code."
+    }
+  ]
+}

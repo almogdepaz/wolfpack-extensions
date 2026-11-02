@@ -1,3 +1,343 @@
+// schemas/context.schema.json
+var context_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "schemaVersion",
+    "goal",
+    "now",
+    "needsYou",
+    "needToKnow",
+    "nextSteps",
+    "history",
+    "source",
+    "updatedAt",
+    "freshness",
+    "activity"
+  ],
+  properties: {
+    schemaVersion: {
+      const: 3
+    },
+    goal: {
+      type: "string",
+      minLength: 1,
+      maxLength: 1000
+    },
+    now: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "id",
+        "text"
+      ],
+      properties: {
+        id: {
+          type: "string",
+          minLength: 1,
+          maxLength: 128
+        },
+        text: {
+          type: "string",
+          minLength: 1,
+          maxLength: 240
+        },
+        details: {
+          type: "string",
+          minLength: 1,
+          maxLength: 2000
+        }
+      }
+    },
+    needsYou: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "text"
+        ],
+        properties: {
+          id: {
+            type: "string",
+            minLength: 1,
+            maxLength: 128
+          },
+          text: {
+            type: "string",
+            minLength: 1,
+            maxLength: 240
+          },
+          details: {
+            type: "string",
+            minLength: 1,
+            maxLength: 2000
+          }
+        }
+      }
+    },
+    needToKnow: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "text"
+        ],
+        properties: {
+          id: {
+            type: "string",
+            minLength: 1,
+            maxLength: 128
+          },
+          text: {
+            type: "string",
+            minLength: 1,
+            maxLength: 240
+          },
+          details: {
+            type: "string",
+            minLength: 1,
+            maxLength: 2000
+          }
+        }
+      }
+    },
+    nextSteps: {
+      type: "array",
+      maxItems: 3,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "text",
+          "owner"
+        ],
+        properties: {
+          id: {
+            type: "string",
+            minLength: 1,
+            maxLength: 128
+          },
+          text: {
+            type: "string",
+            minLength: 1,
+            maxLength: 240
+          },
+          details: {
+            type: "string",
+            minLength: 1,
+            maxLength: 2000
+          },
+          owner: {
+            enum: [
+              "agent",
+              "user"
+            ]
+          }
+        }
+      }
+    },
+    history: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "text",
+          "kind"
+        ],
+        properties: {
+          id: {
+            type: "string",
+            minLength: 1,
+            maxLength: 128
+          },
+          text: {
+            type: "string",
+            minLength: 1,
+            maxLength: 240
+          },
+          details: {
+            type: "string",
+            minLength: 1,
+            maxLength: 2000
+          },
+          kind: {
+            enum: [
+              "decision",
+              "completed"
+            ]
+          }
+        }
+      }
+    },
+    source: {
+      oneOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "harness",
+            "sessionId",
+            "branchId",
+            "coveredEntryId"
+          ],
+          properties: {
+            harness: {
+              const: "pi"
+            },
+            sessionId: {
+              type: "string",
+              minLength: 1,
+              maxLength: 128
+            },
+            branchId: {
+              type: [
+                "string",
+                "null"
+              ],
+              maxLength: 128
+            },
+            coveredEntryId: {
+              type: [
+                "string",
+                "null"
+              ],
+              maxLength: 128
+            }
+          }
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "harness",
+            "sessionId",
+            "promptId",
+            "coveredToolUseId"
+          ],
+          properties: {
+            harness: {
+              const: "claude"
+            },
+            sessionId: {
+              type: "string",
+              minLength: 1,
+              maxLength: 128
+            },
+            promptId: {
+              type: [
+                "string",
+                "null"
+              ],
+              maxLength: 128
+            },
+            coveredToolUseId: {
+              type: [
+                "string",
+                "null"
+              ],
+              maxLength: 128
+            }
+          }
+        }
+      ]
+    },
+    updatedAt: {
+      type: "string",
+      minLength: 24,
+      maxLength: 24
+    },
+    freshness: {
+      enum: [
+        "reviewed",
+        "unreviewed",
+        "missed"
+      ]
+    },
+    activity: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "state",
+        "observedAt"
+      ],
+      properties: {
+        state: {
+          enum: [
+            "working",
+            "idle",
+            "interrupted",
+            "unknown"
+          ]
+        },
+        observedAt: {
+          type: "string",
+          minLength: 24,
+          maxLength: 24
+        }
+      }
+    }
+  }
+};
+
+// src/focus.ts
+var MAX_DOCUMENT_BYTES = 64 * 1024;
+function matches(value, rule) {
+  if (rule.oneOf && rule.oneOf.filter((branch) => matches(value, branch)).length !== 1)
+    return false;
+  if ("const" in rule && value !== rule.const || rule.enum && !rule.enum.includes(value))
+    return false;
+  if (rule.type) {
+    const types = Array.isArray(rule.type) ? rule.type : [rule.type];
+    const type = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+    if (!types.includes(type))
+      return false;
+  }
+  if (typeof value === "string" && ([...value].length < (rule.minLength ?? 0) || [...value].length > (rule.maxLength ?? Infinity)))
+    return false;
+  if (Array.isArray(value) && (value.length > (rule.maxItems ?? Infinity) || rule.items && !value.every((item) => matches(item, rule.items))))
+    return false;
+  if (rule.properties && value && typeof value === "object" && !Array.isArray(value)) {
+    const object = value;
+    if (rule.required?.some((key) => !Object.hasOwn(object, key)) || Object.keys(object).some((key) => {
+      const property = rule.properties[key];
+      return !Object.hasOwn(rule.properties, key) || !property || !matches(object[key], property);
+    }))
+      return false;
+  }
+  return true;
+}
+var timestamp = (value) => {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) && date.toISOString() === value;
+};
+function isFocusDocument(value) {
+  try {
+    if (new TextEncoder().encode(JSON.stringify(value)).length > MAX_DOCUMENT_BYTES || !matches(value, context_schema_default))
+      return false;
+    const document2 = value;
+    return timestamp(document2.updatedAt) && timestamp(document2.activity.observedAt) && [document2.needsYou, document2.needToKnow, document2.nextSteps, document2.history].every((items) => new Set(items.map((item) => item.id)).size === items.length);
+  } catch {
+    return false;
+  }
+}
+var snapshotSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["goal", "now", "needsYou", "needToKnow", "nextSteps", "history"],
+  properties: Object.fromEntries(["goal", "now", "needsYou", "needToKnow", "nextSteps", "history"].map((key) => [key, context_schema_default.properties[key]]))
+};
+
 // src/model.ts
 function splitBulletText(value) {
   const separator = /\r?\n[\t ]*\r?\n/.exec(value);
@@ -22,6 +362,8 @@ function acceptsRevision(previous, next) {
 function contextViewModel(value, revision = 0) {
   if (value === null)
     return { state: "empty", revision: 0 };
+  if (isFocusDocument(value))
+    return { state: "focus", revision, document: value };
   if (!document2(value))
     return { state: "error", revision };
   const bullets = (values) => values.map((value) => {
@@ -84,16 +426,16 @@ var styles = `
 .wolfpack-agent-context .wac-chevron { flex: 0 0 14px; width: 14px; height: 14px; margin-top: 3px; fill: none; stroke: var(--wac-muted); stroke-width: 1.6; transition: transform .15s ease; }
 .wolfpack-agent-context details[open] > summary .wac-chevron { transform: rotate(90deg); }
 .wolfpack-agent-context .wac-detail { padding: 10px 12px 12px 37px; border-top: 1px solid var(--wac-border); color: var(--text-secondary, #bac6be); font-size: 12px; line-height: 1.65; white-space: pre-wrap; }
-.wolfpack-agent-context .wac-progress { width: 100%; height: 3px; border: 0; border-radius: 3px; overflow: hidden; background: var(--wac-border); color: var(--wac-accent); accent-color: var(--wac-accent); }
-.wolfpack-agent-context .wac-progress::-webkit-progress-bar { background: var(--wac-border); }
-.wolfpack-agent-context .wac-progress::-webkit-progress-value { background: var(--wac-accent); }
-.wolfpack-agent-context .wac-progress::-moz-progress-bar { background: var(--wac-accent); }
+.wolfpack-agent-context .wac-focus { display: grid; gap: 16px; min-width: 0; }
+.wolfpack-agent-context .wac-needs-you .wac-item { border-left: 3px solid var(--warning, #ebca78); }
+.wolfpack-agent-context .wac-freshness, .wolfpack-agent-context .wac-activity { color: var(--wac-muted); font-size: 11px; }
 .wolfpack-agent-context .wac-clear { color: var(--wac-muted); font-size: 11px; }
 .wolfpack-agent-context .wac-blockers h3 { color: var(--warning, #ebca78); }
 .wolfpack-agent-context .wac-tools { display: grid; border-top: 1px solid var(--wac-border); }
 .wolfpack-agent-context .wac-tool > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; color: var(--wac-muted); font-size: 12px; }
 .wolfpack-agent-context .wac-tool > summary:hover { color: var(--wac-text); }
 .wolfpack-agent-context .wac-tool-body { display: grid; gap: 10px; padding-bottom: 12px; color: var(--wac-muted); font-size: 11px; }
+.wolfpack-agent-context .wac-provenance { display: grid; gap: 6px; }
 .wolfpack-agent-context .wac-session-id { font: 11px/1.6 var(--font-mono, monospace); color: var(--text-secondary, #bac6be); user-select: all; }
 .wolfpack-agent-context textarea { display: block; width: 100%; min-height: 112px; resize: vertical; padding: 10px; border: 1px solid var(--border-input, #36433b); border-radius: 7px; background: var(--bg-inset, #0d100e); color: var(--wac-text); font: inherit; line-height: 1.6; }
 .wolfpack-agent-context textarea::placeholder { color: var(--wac-muted); }
@@ -188,7 +530,7 @@ var view = {
     }
     const guidance = node("div", "wac-guidance");
     const request = "Update this session's context using the wolfpack-agent-context skill.";
-    guidance.append(node("p", "", "Ask your agent to publish a brief for this session. It will resolve the session automatically."), node("p", "wac-request", request), copyButton("Copy request", request), node("p", "", "Context is not extracted automatically from terminal output."));
+    guidance.append(node("p", "", "Installing the Wolfpack extension adds this panel, not the Claude Code plugin or Pi companion. Automatic updates need a separate agent integration; installing a skill alone is not enough."), node("h3", "", "Setup for automatic updates"), node("p", "", "Claude Code: add the repository marketplace, then install the plugin:"), node("code", "wac-request", "claude plugin marketplace add /path/to/wolfpack-extensions"), node("code", "wac-request", "claude plugin install wolfpack-agent-context@wolfpack-extensions"), node("p", "", "Pi: install the companion:"), node("code", "wac-request", "pi install /path/to/wolfpack-extensions/packages/agent-context"), node("p", "", "Replace /path/to/wolfpack-extensions with your local repository directory. Use the integration for your agent, or both if you use both."), node("p", "", "Start a new session in Wolfpack after setup; /clear does not load a newly installed plugin. If already set up, no update has been received yet."), node("p", "", "Manual recovery is not automatic setup. The bundled skill explains explicit publication recovery; context is never scraped from terminal output."), node("p", "wac-request", request), copyButton("Copy request", request));
     const unavailable = node("p", "wac-feedback", "The document could not be read or did not match the context format. Ask the agent to check its published document. Your local draft is unaffected.");
     const content = node("div", "wac-content");
     const clear = node("p", "wac-clear", "✓  No blockers reported");
@@ -207,9 +549,6 @@ var view = {
     const next = section("Next steps");
     const decisions = section("Decisions");
     const blockers = section("Blockers", "wac-blockers");
-    const progress = node("progress", "wac-progress");
-    progress.setAttribute("aria-label", "Agent-reported plan completion");
-    plan.heading.after(progress);
     content.append(plan.element, next.element, decisions.element);
     function tool(title, key, defaultOpen = false) {
       const element = node("details", "wac-tool");
@@ -221,6 +560,23 @@ var view = {
       element.addEventListener("toggle", () => save(key, String(element.open)), { signal: events.signal });
       return { element, body };
     }
+    const focusContent = node("div", "wac-focus");
+    const now = section("Now");
+    const needsYou = section("Needs you", "wac-needs-you");
+    const noActions = node("p", "wac-action-state");
+    needsYou.element.append(noActions);
+    const knowledge = section("Need to know");
+    const focusNext = section("Next");
+    const moreKnowledge = tool("More need to know", "knowledge-open");
+    const extraKnowledge = section("Additional need to know");
+    moreKnowledge.body.append(extraKnowledge.element);
+    const historyTool = tool("Decisions and completed work", "history-open");
+    const history = section("History");
+    historyTool.body.append(history.element);
+    const freshness = node("p", "wac-freshness");
+    const activity = node("p", "wac-activity");
+    const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
+    focusContent.append(now.element, needsYou.element, knowledge.element, moreKnowledge.element, focusNext.element, freshness, activity, historyTool.element);
     const draft = node("textarea");
     draft.placeholder = "Ideas to keep for later…";
     draft.setAttribute("aria-label", "Local draft");
@@ -230,10 +586,19 @@ var view = {
     draft.addEventListener("input", () => setText(draftNote, save("draft", draft.value) ? "Saved in this browser only. Not published to the agent." : "Could not save in this browser. Copy your draft before leaving."), { signal: events.signal });
     draftTool.body.append(draft, draftNote);
     const sessionTool = tool("Session details", "session-open");
-    sessionTool.body.append(node("code", "wac-session-id", context.scope.sessionId), copyButton("Copy session ID", context.scope.sessionId), node("p", "", "Agent-authored context — not verified task or execution evidence."));
+    const provenance = node("div", "wac-provenance");
+    provenance.hidden = true;
+    const semanticTime = node("p");
+    const activityTime = node("p");
+    const freshnessNote = node("p");
+    const producer = node("p");
+    const anchor = node("p");
+    const boundary = node("p");
+    provenance.append(semanticTime, activityTime, freshnessNote, producer, anchor, boundary, node("p", "", "Last reported activity is not live presence; idle does not mean complete."));
+    sessionTool.body.append(node("code", "wac-session-id", context.scope.sessionId), copyButton("Copy session ID", context.scope.sessionId), provenance, node("p", "", "Agent-authored context — not verified task or execution evidence."));
     const tools = node("div", "wac-tools");
     tools.append(draftTool.element, sessionTool.element);
-    root.append(node("style", "", styles), meta, goalCard, guidance, unavailable, blockers.element, clear, content, tools, feedback);
+    root.append(node("style", "", styles), meta, goalCard, guidance, unavailable, focusContent, blockers.element, clear, content, tools, feedback);
     container.replaceChildren(root);
     const rows = new Map;
     function makeRow(key, initiallyOpen) {
@@ -282,8 +647,9 @@ var view = {
         const hasDetails = Boolean(bullet.details);
         setText(row.title, bullet.text);
         setText(row.body, bullet.details ?? "");
-        setText(row.status, status ? statuses[status].label : "");
-        row.status.hidden = !status;
+        const annotation = typeof value === "object" && "owner" in value ? String(value.owner) : typeof value === "object" && ("kind" in value) ? String(value.kind) : "";
+        setText(row.status, status ? statuses[status].label : annotation);
+        row.status.hidden = !status && !annotation;
         setText(row.marker, status ? statuses[status].marker : name === "next" ? String(index + 1) : name === "blockers" ? "!" : "·");
         row.li.dataset.status = status ?? (name === "blockers" ? "blocked" : "");
         row.disclosure.hidden = !hasDetails;
@@ -297,14 +663,18 @@ var view = {
         cursor = row.li.nextElementSibling;
       });
       for (const [key, row] of rows) {
-        if (row.li.parentElement === group.list && !wanted.has(key)) {
-          row.disclosure.ontoggle = null;
+        if (row.li.parentElement === group.list && !wanted.has(key))
           row.li.remove();
-          rows.delete(key);
-        }
       }
       group.element.hidden = values.length === 0;
       setText(group.count, String(values.length));
+    }
+    function pruneRows() {
+      for (const [key, row] of rows)
+        if (!root.contains(row.li)) {
+          row.disclosure.ontoggle = null;
+          rows.delete(key);
+        }
     }
     const render = (value, revision) => {
       if (stopped || !acceptsRevision(latest, revision))
@@ -315,7 +685,42 @@ var view = {
       setText(revisionLabel, model.state === "empty" ? "Not published" : `Revision ${model.revision}`);
       guidance.hidden = model.state !== "empty";
       unavailable.hidden = model.state !== "error";
+      focusContent.hidden = provenance.hidden = model.state !== "focus";
       content.hidden = clear.hidden = blockers.element.hidden = model.state !== "ready";
+      if (model.state === "focus") {
+        const value = model.document;
+        setText(goal, value.goal);
+        renderList(now, "now", [value.now]);
+        renderList(needsYou, "needs-you", value.needsYou);
+        renderList(knowledge, "knowledge", value.needToKnow.slice(0, 3));
+        renderList(extraKnowledge, "knowledge", value.needToKnow.slice(3));
+        moreKnowledge.element.hidden = value.needToKnow.length <= 3;
+        renderList(focusNext, "focus-next", value.nextSteps);
+        renderList(history, "history", value.history);
+        historyTool.element.hidden = value.history.length === 0;
+        pruneRows();
+        setText(freshness, `Updated ${dateTime.format(new Date(value.updatedAt))}${value.freshness === "reviewed" ? "" : value.freshness === "missed" ? " · refresh missed" : " · unreviewed"}`);
+        setText(activity, `Last reported: ${value.activity.state} · not live`);
+        setText(semanticTime, `Context updated: ${value.updatedAt}`);
+        setText(activityTime, `Activity observed: ${value.activity.observedAt}`);
+        setText(freshnessNote, value.freshness === "reviewed" ? "Agent-authored snapshot reviewed only at that update; later changes may be missing." : value.freshness === "missed" ? "Refresh missed; context may be out of date." : "Context not reviewed for latest activity.");
+        const source = value.source;
+        if (source.harness === "pi") {
+          setText(producer, `Producer: Pi session ${source.sessionId}`);
+          setText(anchor, `Branch anchor: ${source.branchId ?? "none"}`);
+          setText(boundary, `Covered entry: ${source.coveredEntryId ?? "none"}`);
+        } else {
+          setText(producer, `Producer: Claude Code session ${source.sessionId}`);
+          setText(anchor, `Request: ${source.promptId ?? "none"}`);
+          setText(boundary, `Covered tool result: ${source.coveredToolUseId ?? "none"}`);
+        }
+        needsYou.element.hidden = false;
+        noActions.hidden = value.needsYou.length > 0;
+        setText(noActions, value.freshness === "reviewed" ? "No action requested in this update." : "User actions unknown in the latest activity.");
+        if (active?.isConnected && active.getClientRects().length && document.activeElement !== active)
+          active.focus({ preventScroll: true });
+        return;
+      }
       if (model.state !== "ready") {
         setText(goal, model.state === "empty" ? "No context yet" : "Context unavailable");
         return;
@@ -325,18 +730,16 @@ var view = {
       renderList(next, "next", model.nextSteps);
       renderList(decisions, "decisions", model.decisions);
       renderList(blockers, "blockers", model.blockers);
+      pruneRows();
       clear.hidden = model.blockers.length > 0;
-      const completed = model.planItems.filter((item) => item.status === "complete").length;
-      progress.max = Math.max(1, model.planItems.length);
-      progress.value = completed;
-      progress.setAttribute("aria-valuetext", `${completed} of ${model.planItems.length} items complete, reported by the agent`);
-      setText(plan.count, `${completed} / ${model.planItems.length} done`);
+      setText(clear, "No blockers reported in this legacy context; freshness unknown.");
+      setText(revisionLabel, `Revision ${model.revision} · legacy; freshness unknown`);
       if (active?.isConnected && active.getClientRects().length && document.activeElement !== active)
         active.focus({ preventScroll: true });
     };
     setText(goal, "Loading context…");
     setText(revisionLabel, "Loading");
-    guidance.hidden = unavailable.hidden = content.hidden = blockers.element.hidden = clear.hidden = true;
+    guidance.hidden = unavailable.hidden = content.hidden = focusContent.hidden = blockers.element.hidden = clear.hidden = true;
     const cleanup = () => {
       if (stopped)
         return;

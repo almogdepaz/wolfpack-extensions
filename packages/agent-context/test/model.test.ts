@@ -8,7 +8,7 @@ const schema = readFileSync(join(root, "schemas/context.schema.json"));
 const legacy = { schemaVersion: 1, goal: "Existing goal", planItems: [{ id: "plan", text: "Existing plan", status: "pending" as const }], decisions: ["Existing decision"], blockers: [], nextSteps: ["Existing next step"] };
 const rich = { ...legacy, planItems: [{ ...legacy.planItems[0], text: "Existing plan\n\nSupporting explanation" }], decisions: ["A concise headline\n\nFull rationale"], blockers: ["Input needed\n\nWaiting for the named prerequisite"], nextSteps: ["Review\n\nInspect the expanded content"] };
 test("Agent Context preserves scoped revision, hostile text and stable headline/details model contracts", () => {
-  expect(createHash("sha256").update(schema).digest("hex")).toBe("1e1e51e94c628b104fd927995995ed484385c3ebc87741787a8cd67694c485e3");
+  expect(createHash("sha256").update(schema).digest("hex")).toBe("d6e0af21b7d8a0d3127cd714b30a500a1358115bbdb4ccda9fba6283afd2ab29");
   expect(acceptsRevision(4, 3)).toBe(false); expect(acceptsRevision(4, 4)).toBe(true); expect(acceptsRevision(4, 5)).toBe(true);
   expect(contextViewModel(null)).toMatchObject({ state: "empty", revision: 0 });
   expect(contextViewModel({ ...legacy, goal: "<img src=x onerror=alert(1)>" }, 3)).toMatchObject({ state: "ready", revision: 3, goal: "<img src=x onerror=alert(1)>" });

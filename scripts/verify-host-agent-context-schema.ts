@@ -1,16 +1,33 @@
 #!/usr/bin/env bun
-/** Explicit release-only contract check against the selected host validator. */
+/** Release-only schema-v3 contract check against the explicitly selected host validator. */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { claudeFocusDocument, focusDocument } from "../packages/agent-context/test/focus-fixture.ts";
 const host = process.env.WOLFPACK_EXTENSION_HOST_ROOT;
 if (!host) throw new Error("set WOLFPACK_EXTENSION_HOST_ROOT to the selected APIv1 host");
 const schema = readFileSync(join(import.meta.dirname, "..", "packages", "agent-context", "schemas", "context.schema.json"));
-if (createHash("sha256").update(schema).digest("hex") !== "1e1e51e94c628b104fd927995995ed484385c3ebc87741787a8cd67694c485e3") throw new Error("frozen Agent Context schema bytes changed");
-const { compileStaticDocumentSchema, validateDocumentPayload } = await import(join(host, "src", "extensions", "document-contract.ts"));
+if (createHash("sha256").update(schema).digest("hex") !== "d6e0af21b7d8a0d3127cd714b30a500a1358115bbdb4ccda9fba6283afd2ab29") throw new Error("frozen Agent Context v3 schema bytes changed");
+const { compileStaticDocumentSchema, validateDocumentPayload } = await import(join(host, "src/extensions/document-contract.ts"));
 const validator = compileStaticDocumentSchema(JSON.parse(schema.toString()));
-const legacy = { schemaVersion: 1, goal: "Existing goal", planItems: [{ id: "plan", text: "Existing plan", status: "pending" }], decisions: ["Existing decision"], blockers: [], nextSteps: ["Existing next step"] };
-const rich = { ...legacy, planItems: [{ ...legacy.planItems[0], text: "Existing plan\n\nSupporting explanation" }], decisions: ["A concise headline\n\nFull rationale"], blockers: ["Input needed\n\nWaiting"], nextSteps: ["Review\n\nInspect"] };
-for (const value of [legacy, rich]) validateDocumentPayload(value, validator);
-for (const value of [{ ...rich, decisions: [{ id: "choice", text: "Missing" }] }, { ...rich, decisions: [{ id: "choice", text: "Headline", details: 42 }] }, { ...rich, decisions: [{ id: "choice", text: "Headline", details: "" }] }, { ...rich, decisions: [{ id: "choice", text: "x".repeat(241), details: "Details" }] }, { ...rich, blockers: ["x".repeat(16001)] }, { ...rich, nextSteps: [{ id: "choice", text: "Headline", details: "Details", executable: true }] }, { ...rich, planItems: [{ ...rich.planItems[0], details: false }] }]) { let rejected = false; try { validateDocumentPayload(value, validator); } catch { rejected = true; } if (!rejected) throw new Error("selected host accepted invalid Agent Context payload"); }
-process.stdout.write("selected host accepts legacy/rich Agent Context schema and rejects seven incompatible payloads\n");
+for (const value of [focusDocument, claudeFocusDocument, { ...claudeFocusDocument, source: { ...claudeFocusDocument.source, promptId: null, coveredToolUseId: null } }, { ...focusDocument, needsYou: [], needToKnow: [], nextSteps: [], history: [], source: { ...focusDocument.source, branchId: null, coveredEntryId: null }, activity: { state: "interrupted", observedAt: focusDocument.updatedAt }, freshness: "missed" }]) validateDocumentPayload(value, validator);
+const invalid = [
+  { schemaVersion: 1, goal: "Legacy", planItems: [], decisions: [], blockers: [], nextSteps: [] },
+  { ...focusDocument, now: { id: "focus", text: "x".repeat(241) } },
+  { ...focusDocument, nextSteps: [{ id: "next", text: "Missing owner" }] },
+  { ...focusDocument, nextSteps: [{ id: "next", text: "Bad owner", owner: "nobody" }] },
+  { ...focusDocument, needToKnow: Array.from({ length: 21 }, (_, i) => ({ id: String(i), text: "fact" })) },
+  { ...focusDocument, history: [{ id: "h", text: "Bad kind", kind: "task" }] },
+  { ...focusDocument, updatedAt: "yesterday" },
+  { ...focusDocument, freshness: "live" },
+  { ...focusDocument, activity: { state: "completed", observedAt: focusDocument.updatedAt } },
+  { ...focusDocument, source: { ...focusDocument.source, guessedSession: "name" } },
+  { ...focusDocument, schemaVersion: 2, source: { piSessionId: "pi-session", branchId: null, coveredEntryId: null } },
+  { ...focusDocument, source: { ...focusDocument.source, harness: "claude" } },
+  { ...claudeFocusDocument, source: { ...claudeFocusDocument.source, branchId: null } },
+  { ...claudeFocusDocument, source: { ...claudeFocusDocument.source, harness: "codex" } },
+  { ...claudeFocusDocument, source: { harness: "claude", promptId: null, coveredToolUseId: null } },
+  { ...focusDocument, needsYou: Array.from({ length: 20 }, (_, i) => ({ id: String(i), text: "x".repeat(240), details: "界".repeat(2000) })) },
+];
+for (const value of invalid) { let rejected = false; try { validateDocumentPayload(value, validator); } catch { rejected = true; } if (!rejected) throw new Error("selected host accepted invalid Agent Context v2 payload"); }
+process.stdout.write(`selected host accepts schema-v3 Pi/Claude provenance and independent activity/freshness; rejects ${invalid.length} incompatible/confused/over-budget payloads (v1 display-only)\n`);

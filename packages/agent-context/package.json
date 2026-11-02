@@ -1,17 +1,20 @@
 {
   "name": "wolfpack-extension-agent-context",
   "version": "0.1.0",
-  "description": "Agent-authored scoped context view for Wolfpack.",
+  "description": "Agent-authored scoped focus panel for Wolfpack with Pi and Claude Code integrations.",
   "license": "MIT",
-  "files": ["dist", "schemas", "skills", "README.md", "LICENSE"],
+  "files": ["dist", "schemas", "skills", ".claude-plugin", "hooks", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
   "wolfpack": {
     "manifestVersion": 1,
     "apiVersion": 1,
     "id": "agent-context",
     "ui": "dist/ui.js",
     "skills": ["skills/wolfpack-agent-context"],
-    "documents": [{ "id": "context", "schemaVersion": 1, "schema": "schemas/context.schema.json" }]
+    "documents": [{ "id": "context", "schemaVersion": 3, "schema": "schemas/context.schema.json" }]
   },
+  "pi": { "extensions": ["dist/pi.js"], "skills": [], "prompts": [], "themes": [] },
+  "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "typebox": "*" },
+  "devDependencies": { "@modelcontextprotocol/sdk": "1.32.2", "zod": "4.6.7" },
   "scripts": {
     "build": "bun run scripts/build.ts",
     "typecheck": "bunx tsc --noEmit -p tsconfig.json",

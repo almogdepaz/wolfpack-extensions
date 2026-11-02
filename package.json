@@ -15,11 +15,15 @@
     "verify:host-compat": "bun run scripts/verify-host-compat.ts",
     "verify:host-install": "bun run scripts/verify-host-install.ts",
     "verify:host-install-causal": "bun run scripts/verify-host-install-causal.ts",
+    "verify:pi-agent-context": "bun run scripts/verify-pi-agent-context.ts",
+    "verify:host-agent-context-publisher": "bun run scripts/verify-host-agent-context-publisher.ts",
     "verify:host-agent-context-schema": "bun run scripts/verify-host-agent-context-schema.ts",
+    "verify:claude-agent-context": "bun run scripts/verify-claude-agent-context.ts",
     "verify:host-agent-context-ui": "bun test packages/agent-context/test/component.test.ts",
     "verify:host-agent-context-ui-counterfactual": "bun run scripts/verify-host-agent-context-ui-counterfactual.ts"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@axe-core/playwright": "4.10.2",
     "@playwright/test": "1.58.2",
     "bun-types": "1.3.10",

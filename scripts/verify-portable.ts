@@ -11,7 +11,7 @@ try {
     cpSync(join(source, name), join(target, name), { recursive: true });
   }
   const env = { ...process.env, HOME: join(target, "home"), TMPDIR: join(target, "tmp"), npm_config_cache: join(target, "cache"), npm_config_userconfig: join(target, "npmrc"), npm_config_ignore_scripts: "true" };
-  for (const command of [["bun", "install", "--offline", "--frozen-lockfile", "--ignore-scripts"], ["bun", "run", "build"], ["bun", "run", "typecheck"], ["bun", "run", "check:package"]]) {
+  for (const command of [["bun", "install", "--offline", "--frozen-lockfile", "--ignore-scripts", "--omit=peer"], ["bun", "run", "build"], ["bun", "run", "typecheck"], ["bun", "run", "check:package"]]) {
     const result = Bun.spawnSync(command, { cwd: target, env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     if (result.exitCode !== 0) throw new Error(`${command.join(" ")} failed outside source root: ${result.stderr.toString() || result.stdout.toString()}`);
   }

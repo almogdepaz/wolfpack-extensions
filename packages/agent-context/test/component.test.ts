@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { claudeFocusDocument, focusDocument } from "./focus-fixture.ts";
 
 const root = join(import.meta.dirname, "..");
 type ComponentDependencies = { launch?: () => Promise<Browser>; onServer?: (url: string) => void; themeFixture?: boolean; };
@@ -54,12 +55,22 @@ test("component fixture releases server and partial browser after later startup 
   await expect(fetch(serverUrl)).rejects.toThrow();
 });
 
-test("empty Agent Context explains skill publication for the exact scope and hides guidance after publication", async () => {
+test("empty Agent Context explains companion activation and explicit fallback for the exact scope", async () => {
   const fixture = await component();
   try {
     const { page } = fixture;
-    const guidance = page.getByText(/Ask your agent to publish a brief for this session/);
+    await page.setViewportSize({ width: 220, height: 960 });
+    const guidance = page.getByText(/Installing the Wolfpack extension adds this panel, not the Claude Code plugin or Pi companion/);
     expect(await guidance.isVisible()).toBe(true);
+    for (const command of [
+      "claude plugin marketplace add /path/to/wolfpack-extensions",
+      "claude plugin install wolfpack-agent-context@wolfpack-extensions",
+      "pi install /path/to/wolfpack-extensions/packages/agent-context",
+    ]) expect(await page.getByText(command, { exact: true }).isVisible()).toBe(true);
+    expect(await page.getByText(/Start a new session in Wolfpack after setup/).isVisible()).toBe(true);
+    expect(await page.getByText(/Manual recovery is not automatic setup/).isVisible()).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await page.locator(".wac-guidance").textContent()).not.toContain("Other agents can publish");
     expect(await page.getByRole("button", { name: "Copy request" }).isVisible()).toBe(true);
     await page.getByText("Session details", { exact: true }).click();
     expect(await page.locator(".wac-session-id").textContent()).toBe("11111111-1111-4111-8111-111111111111");
@@ -140,7 +151,7 @@ test("all plan states stay readable, blockers are prominent, and expanded hostil
     const statuses = ["pending", "in_progress", "complete", "blocked"];
     await page.evaluate((value) => (globalThis as any).__sample.publish(value, 1), { ...richDocument, planItems: statuses.map((status) => ({ id: status, text: `${status}\n\n<img src=x onerror=alert(1)>\n<script>bad()</script>`, status })) });
     for (const label of ["Pending", "In progress", "Complete", "Blocked"]) expect(await page.locator(".wac-status").getByText(label, { exact: true }).isVisible()).toBe(true);
-    expect(await page.getByRole("progressbar").getAttribute("aria-valuetext")).toBe("1 of 4 items complete, reported by the agent");
+    expect(await page.getByRole("progressbar").count()).toBe(0);
     expect(await page.getByText(richDocument.blockers[0].split("\n\n")[1]!, { exact: true }).isVisible()).toBe(true);
     const plan = page.getByRole("region", { name: "Plan", exact: true });
     await plan.locator(".wac-item summary").first().click();
@@ -196,7 +207,7 @@ test("Agent Context visual fixture uses neutral theme fixture at narrow, sidebar
   try {
     const document = process.env.WOLFPACK_WIDGET_DOCUMENT
       ? JSON.parse(readFileSync(process.env.WOLFPACK_WIDGET_DOCUMENT, "utf8")).document
-      : { schemaVersion: 1, goal: "Make the session brief easier to scan", planItems: [{ id: "design", text: "Refine the widget\n\nSeparate each item clearly. Keep its headline and status visible, with supporting detail one click away.", status: "in_progress" }], decisions: ["Progressive disclosure\n\nUse native keyboard-accessible disclosures. Keep expanded items open when a new revision arrives."], blockers: [], nextSteps: ["Review the new design\n\nCheck the narrow sidebar and full context view, then verify keyboard interaction."] };
+      : { ...focusDocument, goal: "Keep the session focused without check-ins", now: { id: "design", text: "Refine the focus panel", details: "Keep meaningful focus, user actions and next steps readable at a glance." }, needsYou: [{ id: "review", text: "Review the narrow layout", details: "Check long headlines, disclosures and keyboard interaction." }] };
     await fixture.page.evaluate((value) => (globalThis as any).__sample.publish(value, 1), document);
     for (const width of [220, 320, 960]) {
       await fixture.page.setViewportSize({ width, height: 1000 });
@@ -219,4 +230,105 @@ test("Agent Context visual fixture uses neutral theme fixture at narrow, sidebar
 
 test("generated Agent Context component releases once across abort, dispose, and late notification", async () => {
   const fixture = await component(); try { const result = await fixture.page.evaluate(() => { const sample = (globalThis as any).__sample; sample.abort.abort(); sample.controller.dispose(); sample.publish({ schemaVersion: 1, goal: "late", planItems: [], decisions: [], blockers: [], nextSteps: [] }, 1); return sample.releases(); }); expect(result).toBe(1); } finally { await fixture.close(); }
+}, 20_000);
+
+
+test("focus glance preserves actions, critical overflow, draft selection and honest runtime freshness", async () => {
+  const fixture = await component({ themeFixture: true });
+  try {
+    const { page } = fixture;
+    const value = { ...focusDocument, now: { ...focusDocument.now, text: "Long focus headline ".repeat(12).trim() }, needsYou: Array.from({ length: 5 }, (_, i) => ({ id: `ask-${i}`, text: `Question ${i}`, details: "Choose explicitly" })), needToKnow: Array.from({ length: 5 }, (_, i) => ({ id: `fact-${i}`, text: `Critical fact ${i}` })) };
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 1), value);
+    expect(await page.getByRole("region", { name: "Now", exact: true }).textContent()).toContain(value.now.text);
+    for (let i = 0; i < 5; i++) expect(await page.getByText(`Question ${i}`, { exact: true }).isVisible()).toBe(true);
+    expect(await page.getByText("Critical fact 4", { exact: true }).isVisible()).toBe(false);
+    await page.getByText("More need to know", { exact: true }).click();
+    expect(await page.getByText("Critical fact 4", { exact: true }).isVisible()).toBe(true);
+    expect(await page.getByRole("region", { name: "Next", exact: true }).textContent()).toContain("agent");
+    expect(await page.getByText("Use structured updates", { exact: true }).isVisible()).toBe(false);
+    await page.getByText("Decisions and completed work", { exact: true }).click();
+    expect(await page.getByText("Use structured updates", { exact: true }).isVisible()).toBe(true);
+    await page.getByText("Question 0", { exact: true }).click();
+    await page.getByText("Local draft", { exact: true }).click();
+    await page.locator("textarea").fill("Keep this draft");
+    await page.locator("textarea").evaluate((node: HTMLTextAreaElement) => { node.focus(); node.setSelectionRange(2, 5); });
+    await page.evaluate(value => (globalThis as any).__sample.publish({ ...value, needsYou: [], freshness: "unreviewed", activity: { state: "idle", observedAt: "2026-02-01T00:00:00.000Z" } }, 2), value);
+    expect(await page.locator(".wac-freshness").textContent()).not.toContain(focusDocument.updatedAt);
+    expect(await page.locator(".wac-freshness").textContent()).toContain("unreviewed");
+    expect(await page.locator(".wac-activity").textContent()).toContain("Last reported: idle");
+    expect(await page.locator(".wac-action-state").textContent()).not.toContain("No action requested");
+    expect(await page.locator("progress").count()).toBe(0);
+    expect(await page.locator("textarea").evaluate((node: HTMLTextAreaElement) => [document.activeElement === node, node.selectionStart, node.selectionEnd])).toEqual([true, 2, 5]);
+    await page.evaluate(value => (globalThis as any).__sample.publish({ ...value, needsYou: [], freshness: "reviewed" }, 3), value);
+    expect(await page.getByText("No action requested in this update.", { exact: true }).isVisible()).toBe(true);
+    for (const width of [220, 320, 960]) {
+      await page.setViewportSize({ width, height: 1000 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.setViewportSize({ width: 320, height: 1000 });
+    expect((await new AxeBuilder({ page }).include(".wolfpack-agent-context").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  } finally { await fixture.close(); }
+}, 20_000);
+
+
+test("stable fact disclosure and keyboard focus survive crossing the glance overflow boundary", async () => {
+  const fixture = await component();
+  try {
+    const { page } = fixture;
+    const facts = Array.from({ length: 4 }, (_, i) => ({ id: `fact-${i}`, text: `Fact ${i}`, details: `Details ${i}` }));
+    const value = { ...focusDocument, needToKnow: facts };
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 1), value);
+    await page.getByText("More need to know", { exact: true }).click();
+    const summary = page.locator(".wac-item summary").filter({ hasText: "Fact 0" });
+    await summary.click(); await summary.focus();
+    await summary.evaluate(element => { (globalThis as any).__retainedFact = element; });
+    await page.evaluate(value => (globalThis as any).__sample.publish({ ...value, needToKnow: [value.needToKnow[1], value.needToKnow[2], value.needToKnow[3], value.needToKnow[0]] }, 2), value);
+    expect(await page.evaluate(() => document.activeElement === (globalThis as any).__retainedFact)).toBe(true);
+    expect(await page.getByText("Details 0", { exact: true }).isVisible()).toBe(true);
+  } finally { await fixture.close(); }
+}, 20_000);
+
+
+test("compact freshness keeps exact timestamps and provenance in keyboard-accessible session details", async () => {
+  const fixture = await component({ themeFixture: true });
+  try {
+    const { page } = fixture; await page.setViewportSize({ width: 220, height: 1000 });
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 1), focusDocument);
+    const formatted = await page.evaluate(timestamp => new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(new Date(timestamp)), focusDocument.updatedAt);
+    expect(await page.locator(".wac-freshness").textContent()).toBe(`Updated ${formatted}`);
+    expect(await page.locator(".wac-activity").textContent()).toBe("Last reported: working · not live");
+    expect(await page.locator(".wac-provenance").isVisible()).toBe(false);
+    const summary = page.locator("summary").filter({ hasText: "Session details" });
+    await summary.focus(); await page.keyboard.press("Enter");
+    for (const text of [
+      `Context updated: ${focusDocument.updatedAt}`, `Activity observed: ${focusDocument.activity.observedAt}`,
+      `Producer: Pi session ${focusDocument.source.sessionId}`, `Branch anchor: ${focusDocument.source.branchId}`, `Covered entry: ${focusDocument.source.coveredEntryId}`,
+    ]) expect(await page.getByText(text, { exact: true }).isVisible()).toBe(true);
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 0), claudeFocusDocument); // stale revision: ignored
+    expect(await page.getByText(`Producer: Pi session ${focusDocument.source.sessionId}`, { exact: true }).isVisible()).toBe(true);
+    expect(await page.getByText("Agent-authored snapshot reviewed only at that update; later changes may be missing.", { exact: true }).isVisible()).toBe(true);
+    const observedAt = "2026-02-01T00:00:00.000Z";
+    await page.evaluate(value => (globalThis as any).__sample.publish({ ...value, freshness: "unreviewed", activity: { state: "idle", observedAt: "2026-02-01T00:00:00.000Z" } }, 2), focusDocument);
+    expect(await page.locator(".wac-freshness").textContent()).toBe(`Updated ${formatted} · unreviewed`);
+    expect(await page.getByText(`Context updated: ${focusDocument.updatedAt}`, { exact: true }).isVisible()).toBe(true);
+    expect(await page.getByText(`Activity observed: ${observedAt}`, { exact: true }).isVisible()).toBe(true);
+    expect(await summary.evaluate(element => document.activeElement === element)).toBe(true);
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 3), { ...focusDocument, freshness: "missed", activity: { state: "idle", observedAt } });
+    expect(await page.locator(".wac-freshness").textContent()).toBe(`Updated ${formatted} · refresh missed`);
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 4), claudeFocusDocument);
+    for (const text of [`Producer: Claude Code session ${claudeFocusDocument.source.sessionId}`, `Request: ${claudeFocusDocument.source.promptId}`, `Covered tool result: ${claudeFocusDocument.source.coveredToolUseId}`]) expect(await page.getByText(text, { exact: true }).isVisible()).toBe(true);
+    expect(await page.getByText(/Branch anchor|Covered entry/).count()).toBe(0); // no invented Pi fields for Claude
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 5), { ...claudeFocusDocument, source: { ...claudeFocusDocument.source, promptId: null, coveredToolUseId: null } });
+    expect(await page.getByText("Request: none", { exact: true }).isVisible()).toBe(true);
+    expect(await page.getByText("Covered tool result: none", { exact: true }).isVisible()).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (process.env.WOLFPACK_WIDGET_ARTIFACTS) {
+      mkdirSync(process.env.WOLFPACK_WIDGET_ARTIFACTS, { recursive: true });
+      await page.setViewportSize({ width: 220, height: 1800 });
+      await page.screenshot({ path: join(process.env.WOLFPACK_WIDGET_ARTIFACTS, "widget-session-details-220.png"), fullPage: true });
+    }
+    expect((await new AxeBuilder({ page }).include(".wolfpack-agent-context").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+    await page.evaluate(value => (globalThis as any).__sample.publish(value, 6), richDocument);
+    expect(await page.locator(".wac-provenance").isVisible()).toBe(false);
+  } finally { await fixture.close(); }
 }, 20_000);

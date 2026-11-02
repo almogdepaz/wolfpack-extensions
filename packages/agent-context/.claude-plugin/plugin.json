@@ -1,0 +1,23 @@
+{
+  "name": "wolfpack-agent-context",
+  "displayName": "Wolfpack Agent Context",
+  "version": "0.1.0",
+  "description": "Keeps the Wolfpack session focus panel current from Claude Code with structured snapshots and lifecycle hooks.",
+  "author": {
+    "name": "Almog De Paz"
+  },
+  "license": "MIT",
+  "keywords": [
+    "wolfpack",
+    "focus",
+    "context"
+  ],
+  "mcpServers": {
+    "focus": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/claude.mjs"
+      ]
+    }
+  }
+}

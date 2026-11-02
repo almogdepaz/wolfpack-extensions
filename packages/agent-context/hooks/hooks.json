@@ -1,0 +1,160 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/dist/claude.mjs",
+              "session-start"
+            ],
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "clear|compact",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "session_start",
+              "session_id": "${session_id}",
+              "source": "${source}"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "prompt",
+              "session_id": "${session_id}",
+              "prompt_id": "${prompt_id}"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__plugin_wolfpack-agent-context_focus__update_focus",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "pre_focus",
+              "session_id": "${session_id}",
+              "tool_use_id": "${tool_use_id}",
+              "agent_id": "${agent_id}"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "tool_done",
+              "session_id": "${session_id}",
+              "tool_use_id": "${tool_use_id}",
+              "agent_id": "${agent_id}",
+              "failed": "false"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "tool_done",
+              "session_id": "${session_id}",
+              "tool_use_id": "${tool_use_id}",
+              "agent_id": "${agent_id}",
+              "failed": "true"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "tool_batch",
+              "session_id": "${session_id}",
+              "agent_id": "${agent_id}"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "stop",
+              "session_id": "${session_id}"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:wolfpack-agent-context:focus",
+            "tool": "lifecycle",
+            "input": {
+              "event": "stop_failure",
+              "session_id": "${session_id}"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

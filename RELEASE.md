@@ -2,10 +2,11 @@
 
 - [ ] Confirm the exact target package/version is unpublished before attempting a new release. Changes `0.1.0` and `0.1.1` are already published; Agent Context and Notes `0.1.0` remain unpublished. This repository has no publish workflow or credentials.
 - [ ] Run root typecheck/build/test/package/negative/pack gates from this repository, then inspect each actual archive and SHA-512 receipt.
-- [ ] Confirm package allowlists: Changes/Notes ship only package metadata, README, LICENSE and `dist/ui.js`; Agent Context additionally ships its schema and skill/reference files.
+- [ ] Confirm package allowlists: Changes/Notes ship only package metadata, README, LICENSE and `dist/ui.js`; Agent Context additionally ships its schema-v3, skill/reference files, `dist/pi.js`, the Claude plugin manifest/hooks, `dist/claude.mjs` and `THIRD_PARTY_NOTICES.md`; the Pi companion imports only Node builtins and the declared Pi-provided peers, the Claude server only Node builtins (bundled SDK listed exactly in the notices).
 - [ ] Verify the selected host explicitly implements Extensions APIv1. `wolfpack-bridge@1.6.24` is not compatible.
 - [ ] Use exact `npm:package@version` commands for published versions, or an absolute unpacked package directory; do not represent archives or URLs as direct install sources.
-- [ ] Before publishing Agent Context, independently verify its schema/skill and scoped revision/CAS behavior against the approved APIv1 host.
+- [ ] Before publishing Agent Context, independently verify its schema/skill and scoped revision/CAS behavior against the approved APIv1 host. Run `verify:pi-agent-context` with `WOLFPACK_PI_PACKAGE_ROOT` (tested Pi 1.4.0), `verify:host-agent-context-publisher` with both peer/host paths, `verify:claude-agent-context` with the host path, and `claude plugin validate` on the package and repository root (tested Claude Code 2.1.316). The scripted fixtures prove lifecycle wiring and bounded missed updates, not universal production-model obedience or live hook loading.
+- [ ] For Agent Context schema upgrades (v2→v3), finish replacement verification first, then have the authorized deployment owner purge **only** `agent-context` and install the built replacement. Old host documents are intentionally discarded; do not migrate or delete browser-local drafts/unrelated extension data. Install the same directory separately with `pi install` and, for Claude Code, through the repository's local marketplace; `--skills pi` only installs skill text. Verify activation in a new session or user-requested idle reload, never a forced active-agent reload. No version bump/publication is implied by preparing this unpublished package.
 
 ## Published Changes 0.1.1
 

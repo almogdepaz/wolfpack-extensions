@@ -1,5 +1,6 @@
+import { isFocusDocument, type FocusDocument } from "./focus.ts";
 export type PlanStatus = "pending" | "in_progress" | "complete" | "blocked";
-/** The installed version-1 wire schema stays byte-for-byte unchanged. */
+/** Legacy read support only; new publications use schema v3. */
 export interface AgentContextDocument {
   readonly schemaVersion: 1;
   readonly goal: string;
@@ -10,6 +11,7 @@ export interface AgentContextDocument {
 }
 export interface ContextBullet { readonly id: string; readonly text: string; readonly details?: string }
 export type AgentContextViewModel =
+  | { readonly state: "focus"; readonly revision: number; readonly document: FocusDocument }
   | { readonly state: "empty"; readonly revision: 0 }
   | { readonly state: "error"; readonly revision: number }
   | { readonly state: "ready"; readonly revision: number; readonly goal: string;
@@ -35,6 +37,7 @@ export function acceptsRevision(previous: number, next: number): boolean { retur
 /** Strings stay inert; stable plan IDs / non-plan headlines retain disclosure identity. */
 export function contextViewModel(value: unknown, revision = 0): AgentContextViewModel {
   if (value === null) return { state: "empty", revision: 0 };
+  if (isFocusDocument(value)) return { state: "focus", revision, document: value };
   if (!document(value)) return { state: "error", revision };
   const bullets = (values: readonly string[]): ContextBullet[] => values.map((value) => { const parts = splitBulletText(value); return { id: parts.text, ...parts }; });
   return {
